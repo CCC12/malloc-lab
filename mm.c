@@ -35,38 +35,38 @@ team_t team = {
 	""
 };
 
-#define WSIZE		4
-#define DSIZE		8
-#define CHUNKSIZE	(1<<12)
+#define WSIZE       4
+#define DSIZE       8
+#define CHUNKSIZE   (1<<12)
 
 /* single word (4) or double word (8) alignment */
-#define ALIGNMENT	8
+#define ALIGNMENT   8
 
 /* rounds up to the nearest multiple of ALIGNMENT */
-#define ALIGN(size)			(((size) + (ALIGNMENT-1)) & ~0x7)
+#define ALIGN(size)         (((size) + (ALIGNMENT-1)) & ~0x7)
 
 /* Pack size(multiple of 8) with an allocate bit */
-#define PACK(size, alloc)	((size) | (alloc))
+#define PACK(size, alloc)   ((size) | (alloc))
 
 /* Put a word into where p points at */
-#define PUT(p, val)			(*(unsigned int *)(p) = (val))
-#define GET(p)				(*(unsigned int *)(p))
+#define PUT(p, val)         (*(unsigned int *)(p) = (val))
+#define GET(p)              (*(unsigned int *)(p))
 
 /* Get size or alloca bit of the block */
-#define GET_SIZE(p)			(GET(p) & 0b1000)
-#define GET_ALLOC(p)		(GET(p) & 0b01)
+#define GET_SIZE(p)         (GET(p) & 0b1000)
+#define GET_ALLOC(p)        (GET(p) & 0b01)
 
 /* 
  * Operates on block pointer which points to the first byte of the payload
  * comput its header and footer
  */
-#define HDRP(bp)			((char *)(bp) - WSIZE)
-#define FTRP(bp)			((char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
+#define HDRP(bp)            ((char *)(bp) - WSIZE)
+#define FTRP(bp)            ((char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
 
-#define NEXT_BLKP(bp)		((char *)(bp) + GET_SIZE((char *)(bp) - WSIZE))
-#define PREV_BLKP(bp)		((char *)(bp) - GET_SIZE((char *)(bp) - DSIZE))
+#define NEXT_BLKP(bp)       ((char *)(bp) + GET_SIZE((char *)(bp) - WSIZE))
+#define PREV_BLKP(bp)       ((char *)(bp) - GET_SIZE((char *)(bp) - DSIZE))
 
-#define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
+#define SIZE_T_SIZE         (ALIGN(sizeof(size_t)))
 
 /* Global variables */
 static void *heap_listp = NULL; /* pointer to Prologue block */
@@ -86,10 +86,10 @@ int mm_init(void)
 
 	if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *) -1)	
 		return -1;
-	PUT(heap_listp, 0);									/* paddding word */
-	PUT(heap_listp + (1*WSIZE), PACK(DSIZE, 1));		/* Prologue block */
+	PUT(heap_listp, 0);                                 /* paddding word */
+	PUT(heap_listp + (1*WSIZE), PACK(DSIZE, 1));        /* Prologue block */
 	PUT(heap_listp + (2*WSIZE), PACK(DSIZE, 1));
-	PUT(heap_listp + (3*WSIZE), PACK(0, 1));			/* Epilogue block */
+	PUT(heap_listp + (3*WSIZE), PACK(0, 1));            /* Epilogue block */
 	heap_listp += 2 * WSIZE;
 
 	if (extend_heap(CHUNKSIZE / WSIZE) == NULL)
@@ -151,7 +151,7 @@ void *extend_heap(size_t words)
 		return NULL;
 	PUT(HDRP(bp), PACK(size, 0));
 	PUT(FTRP(bp), PACK(size, 0));
-	PUT(FTRP(bp) + WSIZE, PACK(0, 1));	/*New Epilogue */
+	PUT(FTRP(bp) + WSIZE, PACK(0, 1));  /*New Epilogue */
 	
 	return bp;
 }
