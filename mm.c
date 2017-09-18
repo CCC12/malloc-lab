@@ -54,8 +54,8 @@ team_t team = {
 #define GET(p)              (*(unsigned int *)(p))
 
 /* Get size or alloca bit of the block */
-#define GET_SIZE(p)         (GET(p) & 0b1000)
-#define GET_ALLOC(p)        (GET(p) & 0b01)
+#define GET_SIZE(p)         (GET(p) & ~0x7)
+#define GET_ALLOC(p)        (GET(p) & 0x1)
 
 /* 
  * Operates on block pointer which points to the first byte of the payload
@@ -77,6 +77,9 @@ static void *extend_heap(size_t words);
 static void *find_fit(size_t asize);
 static void place(void *bp, size_t asize);
 static void *coalesce(void *bp);
+static void printblock(void *bp); 
+void checkheap(int verbose);
+static void checkblock(void *bp);
 
 /* 
  * mm_init - initialize the malloc package.
@@ -93,7 +96,7 @@ int mm_init(void)
 	PUT(heap_listp + (1*WSIZE), PACK(DSIZE, 1));        /* Prologue block */
 	PUT(heap_listp + (2*WSIZE), PACK(DSIZE, 1));
 	PUT(heap_listp + (3*WSIZE), PACK(0, 1));            /* Epilogue block */
-	heap_listp += 2 * WSIZE;
+	heap_listp += (2 * WSIZE);
 
 	if (extend_heap(CHUNKSIZE / WSIZE) == NULL)
 		return -1;
@@ -130,7 +133,6 @@ void *mm_malloc(size_t size)
     if (!(bp = extend_heap(extendsize / WSIZE)))
         return NULL;
     place(bp, asize);
-    checkheap(1);
     return bp;
 }
 
@@ -166,7 +168,7 @@ void *mm_realloc(void *ptr, size_t size)
 	return newptr;
 }
 
-void *extend_heap(size_t words) 
+static void *extend_heap(size_t words) 
 {
 	void *bp;
 	size_t size;
@@ -178,10 +180,10 @@ void *extend_heap(size_t words)
 	PUT(FTRP(bp), PACK(size, 0));
 	PUT(FTRP(bp) + WSIZE, PACK(0, 1));  /*New Epilogue */
 	
-	return bp;
+	return coalesce(bp);
 }
 
-void *coalesce(void *bp)
+static void *coalesce(void *bp)
 {
     size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
@@ -208,7 +210,7 @@ void *coalesce(void *bp)
     return bp;
 }
 
-void *find_fit(size_t asize) 
+static void *find_fit(size_t asize) 
 {
     void *bp;
 
@@ -219,7 +221,10 @@ void *find_fit(size_t asize)
     return NULL;
 }
 
-void place(void *bp, size_t asize) 
+/*
+ * Allocating space after final size is calculated
+ */
+static void place(void *bp, size_t asize) 
 {
     size_t size;
 
