@@ -129,9 +129,16 @@ void *mm_malloc(size_t size)
         return bp;
     }
     
-    extendsize = MAX(size, CHUNKSIZE);
+    /* Once I typed MAX(size, CHUNKSIZE) which made the extendsize 8 bytes
+     * smaller than what I wanted and segfaulted the program. What a debug
+     * experience
+     */
+    extendsize = MAX(asize, CHUNKSIZE);                  
     if (!(bp = extend_heap(extendsize / WSIZE)))
         return NULL;
+    if (size == 0x7add) {
+        checkheap(0);
+    }
     place(bp, asize);
     return bp;
 }
