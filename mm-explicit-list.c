@@ -70,13 +70,15 @@ team_t team = {
 #define SIZE_T_SIZE         (ALIGN(sizeof(size_t)))
 
 /* Global variables */
-static void *heap_listp = NULL; /* Points to the second Prologue block */
+static void *heap_listp = NULL; /* Pointer to the second Prologue block */
+static void *freep = NULL; /* Pointer to the first free block's header */
 
 /* Helper functions */
 static void *extend_heap(size_t words);
 static void *find_fit(size_t asize);
 static void place(void *bp, size_t asize);
 static void *coalesce(void *bp);
+
 static void printblock(void *bp); 
 void checkheap(int verbose);
 static void checkblock(void *bp);
@@ -98,7 +100,8 @@ int mm_init(void)
 	PUT(heap_listp + (3*WSIZE), PACK(0, 1));            /* Epilogue block */
 	heap_listp += (2 * WSIZE);
 
-	if (extend_heap(CHUNKSIZE / WSIZE) == NULL)
+    /* Setting up free list to point at the first free block */
+	if (freep = extend_heap(CHUNKSIZE / WSIZE) == NULL)
 		return -1;
 
 	return 0;
@@ -162,11 +165,10 @@ void *mm_realloc(void *ptr, size_t size)
     size_t oldsize;
 
     /* Equivalent of calling mm_free() */
-    if (size == 0) {
+    if (size == 0)  {
         mm_free(ptr);
         return NULL;
     }
-    
     /* Just malloc */
     if (ptr == NULL)
         return mm_malloc(size);
@@ -188,6 +190,9 @@ void *mm_realloc(void *ptr, size_t size)
     return newptr;
 }
 
+/*
+ * extend_heap - Extend heap with free block and return its block pointer
+ */
 static void *extend_heap(size_t words) 
 {
 	void *bp;
@@ -203,24 +208,27 @@ static void *extend_heap(size_t words)
 	return coalesce(bp);
 }
 
+/* 
+ * coalesce - Boundary tag coalescing. Return ptr to coalesced block
+ */
 static void *coalesce(void *bp)
 {
     size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
 
-    if (prev_alloc && next_alloc) {
+    if (prev_alloc && next_alloc) {         /* Prev and next are both in use */
         return bp;
-    } else if (prev_alloc && !next_alloc) {
+    } else if (prev_alloc && !next_alloc) { /* Pre in use and next free */
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
-    } else if (!prev_alloc && next_alloc) {
+    } else if (!prev_alloc && next_alloc) { /* Pre free and next in use */
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         PUT(FTRP(bp), PACK(size, 0));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
-    } else {
+    } else {                                /* Pre and next are both free */
         size += GET_SIZE(HDRP(NEXT_BLKP(bp))) + GET_SIZE(HDRP(PREV_BLKP(bp)));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         PUT(FTRP(PREV_BLKP(bp)), PACK(size, 0));
@@ -230,6 +238,9 @@ static void *coalesce(void *bp)
     return bp;
 }
 
+/*
+ * find_fit - Find a fit for a block with asize bytes
+ */
 static void *find_fit(size_t asize) 
 {
     void *bp;
@@ -242,7 +253,8 @@ static void *find_fit(size_t asize)
 }
 
 /*
- * Allocating space after final size is calculated
+ * place - Place block of asize bytes at start of free block bp
+ *         and split if remainder would be at least minimum block size
  */
 static void place(void *bp, size_t asize) 
 {
