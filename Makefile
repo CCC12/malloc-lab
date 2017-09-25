@@ -8,14 +8,14 @@ HANDINDIR = /afs/cs.cmu.edu/academic/class/15213-f01/malloclab/handin
 CC = gcc
 CFLAGS = -Wall -O2 -gdwarf-4 -g3
 
-OBJS = mdriver.o mm.o memlib.o fsecs.o fcyc.o clock.o ftimer.o
+OBJS = mdriver.o mm-explicit-list.o memlib.o fsecs.o fcyc.o clock.o ftimer.o
 
 mdriver: $(OBJS)
 	$(CC) $(CFLAGS) -o mdriver $(OBJS)
 
 mdriver.o: mdriver.c fsecs.h fcyc.h clock.h memlib.h config.h mm.h
 memlib.o: memlib.c memlib.h
-mm.o: mm-explicit-list.c mm.h memlib.h
+mm-explicit-list.o: mm-explicit-list.c mm.h memlib.h
 fsecs.o: fsecs.c fsecs.h config.h
 fcyc.o: fcyc.c fcyc.h
 ftimer.o: ftimer.c ftimer.h config.h

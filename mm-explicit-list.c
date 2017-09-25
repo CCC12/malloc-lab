@@ -67,11 +67,17 @@ team_t team = {
 #define NEXT_BLKP(bp)       ((char *)(bp) + GET_SIZE((char *)(bp) - WSIZE))
 #define PREV_BLKP(bp)       ((char *)(bp) - GET_SIZE((char *)(bp) - DSIZE))
 
+#define GET_NEXTFREEP(bp)      (*((void **)((bp) + DSIZE)))
+#define GET_PREVFREEP(bp)      (*((void **)(bp)))
+
+#define PUT_NEXTP(bp, val)  (GET_NEXTFREEP((bp)) = (val))
+#define PUT_PREVP(bp, val)  (GET_PREVFREEP((bp)) = (val))
+
 #define SIZE_T_SIZE         (ALIGN(sizeof(size_t)))
 
 /* Global variables */
 static void *heap_listp = NULL; /* Pointer to the second Prologue block */
-static void *freep = NULL; /* Pointer to the first free block's header */
+static void *heap_freep = NULL; /* Pointer to the first free block's header */
 
 /* Helper functions */
 static void *extend_heap(size_t words);
@@ -80,8 +86,9 @@ static void place(void *bp, size_t asize);
 static void *coalesce(void *bp);
 
 static void printblock(void *bp); 
-void checkheap(int verbose);
 static void checkblock(void *bp);
+static void printfreeblock(void *bp);
+void checkheap(int verbose);
 
 /* 
  * mm_init - initialize the malloc package.
@@ -91,6 +98,7 @@ int mm_init(void)
 	/* Setting up the empty list with padding word 
 	 * and Prologue and Epilogue blocks
 	 */
+    void *bp;
 
 	if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *) -1)	
 		return -1;
@@ -101,9 +109,16 @@ int mm_init(void)
 	heap_listp += (2 * WSIZE);
 
     /* Setting up free list to point at the first free block */
-	if (freep = extend_heap(CHUNKSIZE / WSIZE) == NULL)
+	if ((heap_freep = extend_heap(CHUNKSIZE / WSIZE)) == NULL)
 		return -1;
+    /* Setting up the first free block which has no next and 
+     * prev free block
+     */
+    bp = heap_freep;    
+    PUT_NEXTP(bp, 0);
+    PUT_PREVP(bp, 0);
 
+    checkheap(1);
 	return 0;
 }
 
@@ -302,6 +317,20 @@ static void checkblock(void *bp)
         printf("Error: header does not match footer\n");
 }
 
+static void printfreeblock(void *bp)
+{
+    void *nextp;
+    void *prevp;
+
+    if (bp == NULL)
+        return;
+    nextp = GET_NEXTFREEP(bp);
+    prevp = GET_PREVFREEP(bp);
+    printf("NEXT-> (%p)\n", nextp);
+    printf("PREV-> (%p)\n", prevp);
+    return printfreeblock(nextp);
+}
+
 /* 
  * checkheap - Minimal check of the heap for consistency 
  */
@@ -309,8 +338,10 @@ void checkheap(int verbose)
 {
     char *bp = heap_listp;
 
-    if (verbose)
+    if (verbose) {
         printf("Heap (%p):\n", heap_listp);
+        printf("Freelist -> (%p)\n",heap_freep);
+    }
 
     if ((GET_SIZE(HDRP(heap_listp)) != DSIZE) || !GET_ALLOC(HDRP(heap_listp)))
         printf("Bad prologue header\n");
@@ -322,9 +353,12 @@ void checkheap(int verbose)
         checkblock(bp);
     }
 
-    if (verbose)
+    if (verbose) {
         printblock(bp);
+        printfreeblock(heap_freep);
+    }
     if ((GET_SIZE(HDRP(bp)) != 0) || !(GET_ALLOC(HDRP(bp))))
         printf("Bad epilogue header\n");
+
 }
 
